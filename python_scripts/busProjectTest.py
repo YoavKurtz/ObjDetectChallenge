@@ -45,7 +45,7 @@ class IMAGE:
             ax.text(15, 300, text, fontdict=fontdict,bbox={'facecolor': 'yellow', 'edgecolor': 'yellow', 'alpha': 0.5, 'pad': 2})
         plt.title(title)
         if(not saveDir is None):
-            plt.savefig(os.path.join(saveDir, title), dpi = 500)
+            plt.savefig(os.path.join(saveDir, title) + '.png', dpi = 500)
         plt.close()
 
     def close(self):

@@ -4,7 +4,7 @@ import os
 
 def run(myAnnFileName, buses):
     print ('Running dummy runMe')
-    annFileNameGT = os.path.join(os.getcwd(),'annotationsTrain.txt')
+    annFileNameGT = os.path.join(os.getcwd(), 'gt_detections.txt')
     writtenAnnsLines = {}
     annFileEstimations = open(myAnnFileName, 'w+')
     annFileGT = open(annFileNameGT, 'r')
