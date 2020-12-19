@@ -3,13 +3,14 @@ from typing import List, Dict
 import matplotlib.image as mpimg
 import cv2
 
-def load_single_image(path:str, pre_proc: List) -> np.ndarray:
+def load_single_image(path:str, pre_proc: List=None) -> np.ndarray:
     img = mpimg.imread(path)
-    # run pre-processing according to input dict
-    if 'normalize' in pre_proc:
-        img = img / 255
-    if 'c_first' in pre_proc:
-        img = img.transpose(2, 0, 1)
+    if pre_proc is not None:
+        # run pre-processing according to input dict
+        if 'normalize' in pre_proc:
+            img = img / 255
+        if 'c_first' in pre_proc:
+            img = img.transpose(2, 0, 1)
 
     return img
 
