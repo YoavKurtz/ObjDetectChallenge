@@ -11,6 +11,8 @@ from enum import Enum
 
 from typing import Dict
 
+from utils.TorchTrainUtils.engine import train_one_epoch, evaluate
+
 
 class BackBone(Enum):
     MOBILE_NET_V2 = 1
@@ -59,8 +61,14 @@ class MyFasterRCNNModel:
 
         return model
 
-    def train(self):
-        pass
+    def train(self, num_epochs, optimizer, train_loader, test_loader, lr_scheduler):
+        for epoch in range(num_epochs):
+            # train for one epoch, printing every 10 iterations
+            train_one_epoch(self.model, optimizer, train_loader, self.device, epoch, print_freq=10)
+            # update the learning rate
+            lr_scheduler.step()
+            # evaluate on the test dataset
+            evaluate(self.model, test_loader, device=self.device)
 
     def __call__(self, im: np.ndarray) -> Dict:
         """
