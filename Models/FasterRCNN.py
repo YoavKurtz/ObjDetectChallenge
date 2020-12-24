@@ -43,7 +43,7 @@ class MyFasterRCNNModel:
                   f'Backbone = {self.backbone}, max number of predicitons = '
                   f'{max_num_predictions}')
         self.model = self._get_model_instance(score_thresh, max_num_predictions, min_size, **kwargs)
-        self.model.double().to(self.device)
+        self.model.to(self.device)
 
     def _get_model_instance(self, score_thresh, max_num_predictions, min_size=800, **kwargs) -> torch.nn.Module:
         if self.backbone == BackBone.MOBILE_NET_V2:
@@ -111,7 +111,7 @@ class MyFasterRCNNModel:
             prediction = self.model(im_torch)[0]
 
         # convert from tensor to numpy
-        scores, boxes, labels = prediction['scores'].numpy(), prediction['boxes'].numpy(), prediction['labels'].numpy()
+        scores, boxes, labels = prediction['scores'].cpu().numpy(), prediction['boxes'].cpu().numpy(), prediction['labels'].cpu.numpy()
         out_dict = {'scores': scores, 'boxes': boxes, 'labels': labels}
 
         return out_dict
