@@ -111,7 +111,7 @@ class MyFasterRCNNModel:
             prediction = self.model(im_torch)[0]
 
         # convert from tensor to numpy
-        scores, boxes, labels = prediction['scores'].cpu().numpy(), prediction['boxes'].cpu().numpy(), prediction['labels'].cpu.numpy()
+        scores, boxes, labels = prediction['scores'].cpu().numpy(), prediction['boxes'].cpu().numpy(), prediction['labels'].cpu().numpy()
         out_dict = {'scores': scores, 'boxes': boxes, 'labels': labels}
 
         return out_dict
