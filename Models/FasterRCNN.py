@@ -4,6 +4,9 @@ import numpy as np
 import torch
 import torchvision
 from torchvision.models.detection.rpn import AnchorGenerator
+from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
+
 from utils import load_single_image
 from python_scripts.Main import my_time
 from utils import save_single_image_detections
@@ -20,18 +23,28 @@ class BackBone(Enum):
 
 
 class MyFasterRCNNModel:
-    def __init__(self, backbone_type: BackBone, max_num_predictions, verbose=False,
+    def __init__(self, num_classes, backbone_type: BackBone, max_num_predictions, verbose=False,
                  score_thresh=0.5, min_size=800, **kwargs):
+        """
+
+        :param num_classes: including 'background'
+        :param backbone_type:
+        :param max_num_predictions:
+        :param verbose:
+        :param score_thresh:
+        :param min_size:
+        :param kwargs:
+        """
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.verbose = verbose
         self.backbone = backbone_type
         if self.verbose:
             print(f'Creating Faster-RCNN model. Backbone = {self.backbone}, max number of predicitons = '
                   f'{max_num_predictions}')
-        self.model = self._get_model_instance(score_thresh, max_num_predictions, min_size, **kwargs)
+        self.model = self._get_model_instance(score_thresh, max_num_predictions, num_classes,min_size, **kwargs)
         self.model.double().to(self.device)
 
-    def _get_model_instance(self, score_thresh, max_num_predictions, min_size=800, **kwargs) -> torch.nn.Module:
+    def _get_model_instance(self, score_thresh, max_num_predictions, num_classes, min_size=800, **kwargs) -> torch.nn.Module:
         if self.backbone == BackBone.MOBILE_NET_V2:
             # based on pytorch tutorial
             # (https://colab.research.google.com/github/pytorch/vision/blob/temp-tutorial/tutorials/torchvision_finetuning_instance_segmentation.ipynb#scrollTo=RoAEkUgn4uEq)
@@ -56,6 +69,10 @@ class MyFasterRCNNModel:
                                                                          box_score_thresh=score_thresh,
                                                                          box_detections_per_img=max_num_predictions,
                                                                          **kwargs)
+            # get the number of input features for the classifier
+            in_features = model.roi_heads.box_predictor.cls_score.in_features
+            # replace the pre-trained head with a new one
+            model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
         else:
             sys.exit('Bad backBone type')
 
