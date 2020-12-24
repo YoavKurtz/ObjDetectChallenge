@@ -5,16 +5,15 @@ import torch
 import torchvision
 from torchvision.models.detection.rpn import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
-from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
-from utils import load_single_image
-from python_scripts.Main import my_time
-from utils import save_single_image_detections
+from ..utils import load_single_image
+# from python_scripts.Main import my_time
+from ..utils import save_single_image_detections
 from enum import Enum
 
 from typing import Dict
 
-from utils.TorchTrainUtils.engine import train_one_epoch, evaluate
+from ..utils.TorchTrainUtils.engine import train_one_epoch, evaluate
 
 
 class BackBone(Enum):
@@ -38,13 +37,15 @@ class MyFasterRCNNModel:
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.verbose = verbose
         self.backbone = backbone_type
+        self.num_classes = num_classes
         if self.verbose:
-            print(f'Creating Faster-RCNN model. Backbone = {self.backbone}, max number of predicitons = '
+            print(f'Creating Faster-RCNN model. #classes (including background) = {self.num_classes} ,'
+                  f'Backbone = {self.backbone}, max number of predicitons = '
                   f'{max_num_predictions}')
-        self.model = self._get_model_instance(score_thresh, max_num_predictions, num_classes,min_size, **kwargs)
+        self.model = self._get_model_instance(score_thresh, max_num_predictions, min_size, **kwargs)
         self.model.double().to(self.device)
 
-    def _get_model_instance(self, score_thresh, max_num_predictions, num_classes, min_size=800, **kwargs) -> torch.nn.Module:
+    def _get_model_instance(self, score_thresh, max_num_predictions, min_size=800, **kwargs) -> torch.nn.Module:
         if self.backbone == BackBone.MOBILE_NET_V2:
             # based on pytorch tutorial
             # (https://colab.research.google.com/github/pytorch/vision/blob/temp-tutorial/tutorials/torchvision_finetuning_instance_segmentation.ipynb#scrollTo=RoAEkUgn4uEq)
@@ -72,7 +73,7 @@ class MyFasterRCNNModel:
             # get the number of input features for the classifier
             in_features = model.roi_heads.box_predictor.cls_score.in_features
             # replace the pre-trained head with a new one
-            model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+            model.roi_heads.box_predictor = FastRCNNPredictor(in_features, self.num_classes)
         else:
             sys.exit('Bad backBone type')
 
@@ -122,24 +123,20 @@ def main():
     print(f'------Using device : {device}---------')
     # Create Faster RCNN model and run it on single image
 
-    fasterRCNN = MyFasterRCNNModel(backbone_type=BackBone.RESNET_50, max_num_predictions=5, verbose=True)
+    fasterRCNN = MyFasterRCNNModel(num_classes=7, backbone_type=BackBone.RESNET_50, max_num_predictions=5, verbose=True)
     # load image and preprocess
     im = load_single_image('C:\\Users\\yoavk\\Documents\\GitHub\\ObjDetectChallenge\\data\\busesTrain\\DSCF1110.JPG')
 
-    t = my_time()
-    t.tic()
-
     prediction = fasterRCNN(im)
 
-    t.toc()
     save_single_image_detections('C:\\Users\\yoavk\\Documents\\GitHub\\ObjDetectChallenge\\testAnnotations.txt',
                                  {'boxes': prediction['boxes'], 'labels': prediction['labels']}, 'DSCF1110.JPG')
 
 
 # TODO implement this method. will be called from runMe.py
 def run_frcnn(annFileName: str, im_dir: str):
+    print('TODO stuff here')
     # create model, load weights, runs the model on each the images in the dir, saves annotation to annFileName
-    pass
 
 
 
