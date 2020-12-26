@@ -116,7 +116,7 @@ class MyFasterRCNNModel:
             evaluate(self.model, test_loader, device=self.device)
 
     def train_simple(self, num_epochs, optimizer, lr_scheduler, writer, data_train_loader,
-                     starting_epoch=0, date_val_loader=None, use_fancy_eval=False, print_every=10):
+                     starting_epoch=0, data_val_loader=None, use_fancy_eval=False, print_every=10):
         itr = 1
         for epoch in range(num_epochs):
             epoch_num = starting_epoch + epoch - 1 # -1 because starting epoch is the total number of epochs done so far.
@@ -151,12 +151,12 @@ class MyFasterRCNNModel:
 
             epoch_train_loss = np.mean(train_loss)
             epoch_train_cls_loss = np.mean(cls_loss)
-            if date_val_loader is not None:
-                epoch_val_loss, epoch_val_cls_loss = self._get_val_loss(self.model, date_val_loader)
+            if data_val_loader is not None:
+                epoch_val_loss, epoch_val_cls_loss = self._get_val_loss(data_val_loader)
 
             # Record to tensorBoard
             with writer:
-                if date_val_loader is not None:
+                if data_val_loader is not None:
                     writer.add_scalars('Training convergence/',
                                        {'train_loss': epoch_train_loss,
                                         'val_loss': epoch_val_loss}, epoch_num)
@@ -170,7 +170,7 @@ class MyFasterRCNNModel:
             print(f"Epoch #{epoch_num + 1}/{num_epochs} train_loss: {epoch_train_loss}, val_loss = {epoch_val_loss}")
             print('-' * 10)
             if use_fancy_eval:
-                evaluate(self.model, date_val_loader, device=self.device)
+                evaluate(self.model, data_val_loader, device=self.device)
         writer.flush()
 
     def __call__(self, im: np.ndarray) -> Dict:
