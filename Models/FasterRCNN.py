@@ -119,7 +119,7 @@ class MyFasterRCNNModel:
                      starting_epoch=0, data_val_loader=None, use_fancy_eval=False, print_every=10):
         itr = 1
         for epoch in range(num_epochs):
-            epoch_num = starting_epoch + epoch - 1 # -1 because starting epoch is the total number of epochs done so far.
+            epoch_num = starting_epoch + epoch  # -1 because starting epoch is the total number of epochs done so far.
             self.model.train()
             train_loss = []
             cls_loss = []
@@ -167,8 +167,9 @@ class MyFasterRCNNModel:
                     writer.add_scalars('Training convergence/', epoch_train_loss, epoch_num)
                     writer.add_scalars('loss metrics/', epoch_train_cls_loss, epoch_num)
 
-            print(f"Epoch #{epoch_num + 1}/{num_epochs} train_loss: {epoch_train_loss}, val_loss = {epoch_val_loss}")
+            print(f"Epoch #{epoch_num + 1}/{starting_epoch + num_epochs} train_loss: {epoch_train_loss}, val_loss = {epoch_val_loss}")
             print('-' * 10)
+
             if use_fancy_eval:
                 evaluate(self.model, data_val_loader, device=self.device)
         writer.flush()
