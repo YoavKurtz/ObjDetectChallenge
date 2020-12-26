@@ -22,8 +22,8 @@ class BackBone(Enum):
 
 
 class MyFasterRCNNModel:
-    def __init__(self, num_classes, backbone_type: BackBone, max_num_predictions, verbose=False,
-                 score_thresh=0.5, min_size=800, **kwargs):
+    def __init__(self, num_classes, backbone_type: BackBone, max_num_predictions=100, verbose=False,
+                 score_thresh=0.05, min_size=800, **kwargs):
         """
 
         :param num_classes: including 'background'
@@ -79,6 +79,33 @@ class MyFasterRCNNModel:
 
         return model
 
+    def _get_val_loss(self, date_val_loader):
+        # go over the validation set and calculate average loss
+        train_loss = []
+        cls_loss = []
+        # Not changing to eval because torchvision's fasterRCNN has different output for eval and train modes.
+        # model.eval()
+        with torch.no_grad():
+            for images, targets in date_val_loader:
+                images = list(image.to(self.device) for image in images)
+                targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
+
+                loss_dict = self.model(images, targets)
+
+                losses = sum(loss for loss in loss_dict.values())
+                loss_value = losses.item()
+                train_loss.append(loss_value)
+
+                loss_classifier = loss_dict['loss_classifier'].item()
+                cls_loss.append(loss_classifier)
+
+        epoch_train_loss = np.mean(train_loss)
+        epoch_train_cls_loss = np.mean(cls_loss)
+
+        #self.model.train()
+
+        return epoch_train_loss, epoch_train_cls_loss
+
     def train(self, num_epochs, optimizer, train_loader, test_loader, lr_scheduler):
         for epoch in range(num_epochs):
             # train for one epoch, printing every 10 iterations
@@ -87,6 +114,61 @@ class MyFasterRCNNModel:
             lr_scheduler.step()
             # evaluate on the test dataset
             evaluate(self.model, test_loader, device=self.device)
+
+    def train_simple(self, model, num_epochs, optimizer, lr_scheduler, writer, data_train_loader,
+            date_val_loader=None, print_every=10):
+        itr = 1
+        for epoch in range(num_epochs):
+            self.model.train()
+            train_loss = []
+            cls_loss = []
+            for images, targets in data_train_loader:
+
+                images = list(image.to(self.device) for image in images)
+                targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
+
+                loss_dict = self.model(images, targets)
+
+                loss_classifier = loss_dict['loss_classifier'].item()
+                losses = sum(loss for loss in loss_dict.values())
+                loss_value = losses.item()
+                train_loss.append(loss_value)
+                cls_loss.append(loss_classifier)
+
+                optimizer.zero_grad()
+                losses.backward()
+                optimizer.step()
+
+                if itr % print_every == 0:
+                    print(f"Iteration #{itr} loss: {loss_value}")
+
+                itr += 1
+
+            # update the learning rate
+            if lr_scheduler is not None:
+                lr_scheduler.step()
+
+            epoch_train_loss = np.mean(train_loss)
+            epoch_train_cls_loss = np.mean(cls_loss)
+            if date_val_loader is not None:
+                epoch_val_loss, epoch_val_cls_loss = self._get_val_loss(model, date_val_loader)
+
+            # Record to tensorBoard
+            with writer:
+                if date_val_loader is not None:
+                    writer.add_scalars('Training convergence/',
+                                       {'train_loss': epoch_train_loss,
+                                        'val_loss': epoch_val_loss}, epoch)
+                    writer.add_scalars('loss metrics/',
+                                       {'train_cls_loss': epoch_train_cls_loss,
+                                        'val_cls_loss': epoch_val_cls_loss}, epoch)
+                else:
+                    writer.add_scalars('Training convergence/', epoch_train_loss, epoch)
+                    writer.add_scalars('loss metrics/', epoch_train_cls_loss, epoch)
+
+            print(f"Epoch #{epoch + 1}/{num_epochs} train_loss: {epoch_train_loss}, val_loss = {epoch_val_loss}")
+
+        writer.flush()
 
     def __call__(self, im: np.ndarray) -> Dict:
         """
