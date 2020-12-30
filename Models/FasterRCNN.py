@@ -108,14 +108,14 @@ class MyFasterRCNNModel:
 
         return epoch_train_loss, epoch_train_cls_loss
 
-    def train(self, num_epochs, optimizer, train_loader, test_loader, lr_scheduler, weights_path, starting_epoch=0,
+    def train(self, num_epochs, optimizer, train_loader, test_loader, lr_scheduler, weights_path=None, starting_epoch=0,
               tb_writer=None, fancy_eval=False):
         best_model_wts = copy.deepcopy(self.model.state_dict())
 
         for epoch in range(num_epochs):
             epoch_num = starting_epoch + epoch
             # train for one epoch, printing every 10 iterations
-            train_loss_iter = train_one_epoch(self.model, optimizer, train_loader, self.device, epoch_num, print_freq=10)
+            _, train_loss_iter = train_one_epoch(self.model, optimizer, train_loader, self.device, epoch_num, print_freq=10)
             # update the learning rate
             lr_scheduler.step()
             # evaluate on the test dataset
