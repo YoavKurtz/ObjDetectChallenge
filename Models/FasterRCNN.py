@@ -1,4 +1,5 @@
 import sys
+import copy
 
 import numpy as np
 import torch
@@ -44,6 +45,7 @@ class MyFasterRCNNModel:
                   f'{max_num_predictions}')
         self.model = self._get_model_instance(score_thresh, max_num_predictions, min_size, **kwargs)
         self.model.to(self.device)
+        self.best_val_loss = np.inf
 
     def _get_model_instance(self, score_thresh, max_num_predictions, min_size=800, **kwargs) -> torch.nn.Module:
         if self.backbone == BackBone.MOBILE_NET_V2:
@@ -106,20 +108,49 @@ class MyFasterRCNNModel:
 
         return epoch_train_loss, epoch_train_cls_loss
 
-    def train(self, num_epochs, optimizer, train_loader, test_loader, lr_scheduler):
+    def train(self, num_epochs, optimizer, train_loader, test_loader, lr_scheduler, weights_path, starting_epoch=0,
+              tb_writer=None, fancy_eval=False):
+        best_model_wts = copy.deepcopy(self.model.state_dict())
+
         for epoch in range(num_epochs):
+            epoch_num = starting_epoch + epoch
             # train for one epoch, printing every 10 iterations
-            train_one_epoch(self.model, optimizer, train_loader, self.device, epoch, print_freq=10)
+            train_loss_iter = train_one_epoch(self.model, optimizer, train_loader, self.device, epoch_num, print_freq=10)
             # update the learning rate
             lr_scheduler.step()
             # evaluate on the test dataset
-            evaluate(self.model, test_loader, device=self.device)
+            if fancy_eval:
+                evaluate(self.model, test_loader, device=self.device)
+
+            epoch_val_loss, _ = self._get_val_loss(test_loader)
+            epoch_train_loss = np.mean(train_loss_iter)  # mean of the loss values during the epoch.
+            # Add results to tensor board
+            if tb_writer is not None:
+                with tb_writer:
+                    tb_writer.add_scalars('Training convergence/',
+                                          {'train_loss': epoch_train_loss,
+                                           'val_loss': epoch_val_loss}, epoch_num)
+                    # writer.add_scalars('loss metrics/',
+                    #                    {'train_cls_loss': epoch_train_cls_loss,
+                    #                     'val_cls_loss': epoch_val_cls_loss}, epoch_num)
+
+            if epoch_val_loss < self.best_val_loss:
+                self.best_val_loss = epoch_val_loss
+                # Save best model params
+                print(f'current epoch val loss {epoch_val_loss} < best so far {self.model.state_dict()} keeping weights')
+                best_model_wts = copy.deepcopy(self.model.state_dict())
+
+            # load best model weights
+            self.model.load_state_dict(best_model_wts)
+            if tb_writer is not None:
+                with tb_writer:
+                    tb_writer.flush()
 
     def train_simple(self, num_epochs, optimizer, lr_scheduler, writer, data_train_loader,
                      starting_epoch=0, data_val_loader=None, use_fancy_eval=False, print_every=10):
         itr = 1
         for epoch in range(num_epochs):
-            epoch_num = starting_epoch + epoch  # -1 because starting epoch is the total number of epochs done so far.
+            epoch_num = starting_epoch + epoch
             self.model.train()
             train_loss = []
             cls_loss = []

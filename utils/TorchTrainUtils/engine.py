@@ -15,6 +15,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
     metric_logger = MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
+    train_loss_list = []
 
     lr_scheduler = None
     if epoch == 0:
@@ -36,6 +37,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
 
         loss_value = losses_reduced.item()
+        train_loss_list.append(loss_value)
 
         if not math.isfinite(loss_value):
             print("Loss is {}, stopping training".format(loss_value))
@@ -52,7 +54,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
         metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
 
-    return metric_logger
+    return metric_logger, train_loss_list
 
 
 def _get_iou_types(model):
