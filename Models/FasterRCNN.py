@@ -124,6 +124,8 @@ class MyFasterRCNNModel:
 
             epoch_val_loss, _ = self._get_val_loss(test_loader)
             epoch_train_loss = np.mean(train_loss_iter)  # mean of the loss values during the epoch.
+
+            print(f'Epoch #{epoch_num} loss(sum of losses): train = {epoch_train_loss}, val = {epoch_val_loss}')
             # Add results to tensor board
             if tb_writer is not None:
                 with tb_writer:
@@ -135,9 +137,9 @@ class MyFasterRCNNModel:
                     #                     'val_cls_loss': epoch_val_cls_loss}, epoch_num)
 
             if epoch_val_loss < self.best_val_loss:
-                self.best_val_loss = epoch_val_loss
                 # Save best model params
                 print(f'current epoch val loss {epoch_val_loss} < best so far {self.best_val_loss} keeping weights')
+                self.best_val_loss = epoch_val_loss
                 best_model_wts = copy.deepcopy(self.model.state_dict())
 
             # load best model weights
