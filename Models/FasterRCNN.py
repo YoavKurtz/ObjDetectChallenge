@@ -137,7 +137,7 @@ class MyFasterRCNNModel:
             if epoch_val_loss < self.best_val_loss:
                 self.best_val_loss = epoch_val_loss
                 # Save best model params
-                print(f'current epoch val loss {epoch_val_loss} < best so far {self.model.state_dict()} keeping weights')
+                print(f'current epoch val loss {epoch_val_loss} < best so far {self.best_val_loss} keeping weights')
                 best_model_wts = copy.deepcopy(self.model.state_dict())
 
             # load best model weights
