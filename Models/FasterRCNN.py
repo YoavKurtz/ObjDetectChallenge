@@ -135,7 +135,7 @@ class MyFasterRCNNModel:
         return calc_f1_score(ground_truth_list, prdct_list)
 
     def train(self, num_epochs, optimizer, train_loader, test_loader, lr_scheduler, weights_path=None, starting_epoch=0,
-              tb_writer=None, fancy_eval=False, print_f1_every=4):
+              tb_writer=None, fancy_eval=False, print_f1_every=None):
         best_model_wts = copy.deepcopy(self.model.state_dict())
 
         for epoch in range(num_epochs):
@@ -150,7 +150,7 @@ class MyFasterRCNNModel:
 
             epoch_val_loss, _ = self._get_val_loss(test_loader)
             epoch_train_loss = np.mean(train_loss_iter)  # mean of the loss values during the epoch.
-            if epoch_num % print_f1_every == 0:
+            if print_f1_every is not None and epoch_num % print_f1_every == 0:
                 val_f1_score = self._get_f1_score(test_loader)
                 print(f'Epoch #{epoch_num} F1 score = {val_f1_score}')
             print(f'Epoch #{epoch_num} loss(sum of losses): train = {epoch_train_loss}, val = {epoch_val_loss}')
