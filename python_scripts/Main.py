@@ -1,6 +1,6 @@
 import time
-from .runMe import *
-from .busProjectTest import runTest
+from python_scripts.runMe import run
+from python_scripts.busProjectTest import runTest
 import sys
 import os
 

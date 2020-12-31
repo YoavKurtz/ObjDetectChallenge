@@ -6,6 +6,7 @@ import matplotlib.patches as patches
 import numpy as np
 import ast
 
+from utils import calc_f1_score
 import imageio
 
 
@@ -125,6 +126,9 @@ def runTest(annFileNameGT, myAnnFileName, busDir , saveDir = None, elapsed = Non
     writtenAnnsLines['Ground_Truth'] = (annFileGT.readlines())
     writtenAnnsLines['Estimation'] = (annFileEstimations.readlines())
 
+    gt_list = []
+    pd_list = []
+
     TP = 0
     FP = 0
     MISS = 0
@@ -152,16 +156,21 @@ def runTest(annFileNameGT, myAnnFileName, busDir , saveDir = None, elapsed = Non
             colorTag = objectsColorsInv[str(ann[4])]
             colors.append(objectsColorsForShow[colorTag])
         numGT = len(annsGT)
+        # annsGT is of type : tuple of lists. each list has 5 items
+        gt_list.append(np.array(annsGT))
         if('[' in lineE):
             annsE = ast.literal_eval(annsE)
             if (not isinstance(annsE, tuple)):
                 annsE = [annsE]
+            # annsE is of type : tuple of lists. each list has 5 items
+            pd_list.append(np.array(annsE))
             for ann in annsE:
                 image.add_ROI(ann[:4])
                 colorTag = objectsColorsInv[str(ann[4])]
                 colors.append(objectsColorsForShow[colorTag])
             tp, fp, missed, iou = IOU(annsGT, annsE)
         else:
+            pd_list.append([])
             tp = 0
             fp = 0
             numGT = 0
@@ -205,5 +214,7 @@ def runTest(annFileNameGT, myAnnFileName, busDir , saveDir = None, elapsed = Non
         saveDir = os.path.join(os.getcwd(), 'Output')
         if(not os.path.exists(saveDir)):
             os.mkdir(saveDir)
+
+    print(calc_f1_score(gt_list, pd_list))
     plt.savefig(os.path.join(saveDir, 'Results.png'), dpi = 600)
     plt.show()

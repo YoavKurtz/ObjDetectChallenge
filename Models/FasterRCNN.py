@@ -117,14 +117,14 @@ class MyFasterRCNNModel:
                 if len(images) > 1:
                     assert "method does not support data loader with batch size > 1"
 
-                boxes = gt_targets['boxes'].detach().cpu().numpy()
-                labels = gt_targets['label'].detach().cpu().numpy()
+                boxes = gt_targets[0]['boxes'].detach().cpu().numpy()
+                labels = gt_targets[0]['label'].detach().cpu().numpy()
                 boxes_w_labels = np.concatenate((boxes, labels.reshape(-1, 1)), axis=1)
                 ground_truth_list.append(boxes_w_labels)
 
                 images = list(image.to(self.device) for image in images)
 
-                prediction = self.model(images)
+                prediction = self.model(images)[0]  # Assuming only one image was processed
 
                 boxes = prediction['boxes'].detach().cpu().numpy()
                 labels = prediction['label'].detach().cpu().numpy()
@@ -133,7 +133,6 @@ class MyFasterRCNNModel:
 
         self.model.train()
         return calc_f1_score(ground_truth_list, prdct_list)
-
 
     def train(self, num_epochs, optimizer, train_loader, test_loader, lr_scheduler, weights_path=None, starting_epoch=0,
               tb_writer=None, fancy_eval=False, print_f1_every=4):
