@@ -86,7 +86,7 @@ class MyFasterRCNNModel:
         train_loss = []
         cls_loss = []
         # Not changing to eval because torchvision's fasterRCNN has different output for eval and train modes.
-        # model.eval()
+        self.model.train()
         with torch.no_grad():
             for images, targets in date_val_loader:
                 images = list(image.to(self.device) for image in images)
@@ -103,8 +103,6 @@ class MyFasterRCNNModel:
 
         epoch_train_loss = np.mean(train_loss)
         epoch_train_cls_loss = np.mean(cls_loss)
-
-        #self.model.train()
 
         return epoch_train_loss, epoch_train_cls_loss
 
@@ -150,9 +148,11 @@ class MyFasterRCNNModel:
 
             epoch_val_loss, _ = self._get_val_loss(test_loader)
             epoch_train_loss = np.mean(train_loss_iter)  # mean of the loss values during the epoch.
+
             if print_f1_every is not None and epoch_num % print_f1_every == 0:
                 val_f1_score = self._get_f1_score(test_loader)
                 print(f'Epoch #{epoch_num} F1 score = {val_f1_score}')
+
             print(f'Epoch #{epoch_num} loss(sum of losses): train = {epoch_train_loss}, val = {epoch_val_loss}')
             # Add results to tensor board
             if tb_writer is not None:
