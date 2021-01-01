@@ -39,6 +39,7 @@ class MyFasterRCNNModel:
         self.verbose = verbose
         self.backbone = backbone_type
         self.num_classes = num_classes
+        self.num_epochs_trained = 0
         if self.verbose:
             print(f'Creating Faster-RCNN model. #classes (including background) = {self.num_classes} ,'
                   f'Backbone = {self.backbone}, max number of predicitons = '
@@ -132,12 +133,12 @@ class MyFasterRCNNModel:
         self.model.train()
         return calc_f1_score(ground_truth_list, prdct_list)
 
-    def train(self, num_epochs, optimizer, train_loader, test_loader, lr_scheduler, weights_path=None, starting_epoch=0,
+    def train(self, num_epochs, optimizer, train_loader, test_loader, lr_scheduler, weights_path=None,
               tb_writer=None, fancy_eval=False, print_f1_every=None):
         best_model_wts = copy.deepcopy(self.model.state_dict())
 
         for epoch in range(num_epochs):
-            epoch_num = starting_epoch + epoch
+            epoch_num = self.num_epochs_trained + epoch
             # train for one epoch, printing every 10 iterations
             _, train_loss_iter = train_one_epoch(self.model, optimizer, train_loader, self.device, epoch_num, print_freq=10)
             # update the learning rate
@@ -177,10 +178,10 @@ class MyFasterRCNNModel:
                     tb_writer.flush()
 
     def train_simple(self, num_epochs, optimizer, lr_scheduler, writer, data_train_loader,
-                     starting_epoch=0, data_val_loader=None, use_fancy_eval=False, print_every=10):
+                     data_val_loader=None, use_fancy_eval=False, print_every=10):
         itr = 1
         for epoch in range(num_epochs):
-            epoch_num = starting_epoch + epoch
+            epoch_num = self.num_epochs_trained + epoch
             self.model.train()
             train_loss = []
             cls_loss = []
@@ -228,7 +229,7 @@ class MyFasterRCNNModel:
                     writer.add_scalars('Training convergence/', epoch_train_loss, epoch_num)
                     writer.add_scalars('loss metrics/', epoch_train_cls_loss, epoch_num)
 
-            print(f"Epoch #{epoch_num + 1}/{starting_epoch + num_epochs} train_loss: {epoch_train_loss}, val_loss = {epoch_val_loss}")
+            print(f"Epoch #{epoch_num + 1}/{self.num_epochs_trained + num_epochs} train_loss: {epoch_train_loss}, val_loss = {epoch_val_loss}")
             print('-' * 10)
 
             if use_fancy_eval:
