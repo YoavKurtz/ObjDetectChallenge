@@ -44,7 +44,7 @@ class MyFasterRCNNModel:
         self.model.to(self.device)
         self.best_score = 0
         self.trainable_backbone_layers = 0
-        for layer in self.model.model_container.model.backbone.body.parameters():
+        for layer in self.model.backbone.body.parameters():
             if layer.requires_grad:
                 self.trainable_backbone_layers += 1
 
