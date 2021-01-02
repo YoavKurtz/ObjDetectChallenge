@@ -156,7 +156,7 @@ class MyFasterRCNNModel:
         with open(chkpnt_dir_path + file_name + '.txt', 'w') as f:
             f.write(f'Num of epochs trained = {self.num_epochs_trained}')
             f.write(f'Best mAP score = {ap_history[-1]}')
-            f.write(f'Initial config : lr = {self.initial_lr}, weight_decay = {optimizer.weight_decay}, '
+            f.write(f'Initial config : lr = {self.initial_lr}, weight_decay = {optimizer.param_groups[0]["weight_decay"]}, '
                     f'lr_scheduler gamma = {lr_scheduler.gamma} step_size = {lr_scheduler.step_size}')
 
             f.close()
