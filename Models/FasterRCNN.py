@@ -12,7 +12,7 @@ from ..utils import load_single_image
 from ..utils import save_single_image_detections, calc_f1_score
 from enum import Enum
 
-from typing import Dict
+from typing import Dict, List
 
 from ..utils.TorchTrainUtils.engine import train_one_epoch, evaluate
 
@@ -40,13 +40,19 @@ class MyFasterRCNNModel:
         self.backbone = backbone_type
         self.num_classes = num_classes
         self.num_epochs_trained = 0
-        if self.verbose:
-            print(f'Creating Faster-RCNN model. #classes (including background) = {self.num_classes} ,'
-                  f'Backbone = {self.backbone}, max number of predicitons = '
-                  f'{max_num_predictions}')
         self.model = self._get_model_instance(score_thresh, max_num_predictions, min_size, **kwargs)
         self.model.to(self.device)
         self.best_score = 0
+        self.trainable_backbone_layers = 0
+        for layer in self.model.model_container.model.backbone.body.parameters():
+            if layer.requires_grad:
+                self.trainable_backbone_layers += 1
+
+        self.initial_lr = 0  # filled when train is called
+        if self.verbose:
+            print(f'Creating Faster-RCNN model. #classes (including background) = {self.num_classes} ,'
+                  f'Backbone = {self.backbone}, max number of predicitons = '
+                  f'{max_num_predictions}, trainable_backbone_layers = {self.trainable_backbone_layers}')
 
     def _get_model_instance(self, score_thresh, max_num_predictions, min_size=800, **kwargs) -> torch.nn.Module:
         if self.backbone == BackBone.MOBILE_NET_V2:
@@ -107,12 +113,12 @@ class MyFasterRCNNModel:
 
         return epoch_train_loss, epoch_train_cls_loss
 
-    def _get_f1_score(self, date_val_loader):
+    def _get_f1_score(self, data_val_loader):
         ground_truth_list = []
         prdct_list = []
         self.model.eval()
         with torch.no_grad():
-            for images, gt_targets in date_val_loader:
+            for images, gt_targets in data_val_loader:
                 if len(images) > 1:
                     assert "method does not support data loader with batch size > 1"
 
@@ -133,10 +139,52 @@ class MyFasterRCNNModel:
         self.model.train()
         return calc_f1_score(ground_truth_list, prdct_list)
 
-    def train(self, num_epochs, optimizer, train_loader, test_loader, lr_scheduler, weights_path=None,
-              tb_writer=None, print_val_loss=False, print_f1_every=None):
+    def _save_checkpoint(self, chkpnt_dir_path: str, optimizer, lr_scheduler, loss_history:List, ap_history:List):
+        file_name = f'FasterRCNN_{self.backbone}_{self.trainable_backbone_layers}'
+        if self.verbose:
+            print(f'Storing checkpoint at {chkpnt_dir_path + file_name}. best mAP = {ap_history[-1]}')
+        # Save model weights
+        torch.save({
+            'epoch': self.num_epochs_trained,
+            'model_state_dict': self.model.state_dict(),
+            'optim_state_dict': optimizer.state_dict(),
+            'lr_scheduler_state_dict': lr_scheduler.state_dict(),
+            'loss_history': loss_history,
+            'ap_history': ap_history
+        }, chkpnt_dir_path + file_name + '.pt')
+        # Save info text file
+        with open(chkpnt_dir_path + file_name + '.txt', 'w') as f:
+            f.write(f'Num of epochs trained = {self.num_epochs_trained}')
+            f.write(f'Best mAP score = {ap_history[-1]}')
+            f.write(f'Initial config : lr = {self.initial_lr}, weight_decay = {optimizer.weight_decay}, '
+                    f'lr_scheduler gamma = {lr_scheduler.gamma} step_size = {lr_scheduler.step_size}')
+
+            f.close()
+
+    def _load_from_checkpoint(self, chkpnt_path: str, optimizer, lr_scheduler):
+        """
+        :param chkpnt_path: full path to the checkpoint dictionary
+        """
+        checkpoint_dict = torch.load(chkpnt_path)
+        self.model.load_state_dict(checkpoint_dict['model_state_dict'])
+        optimizer.load_state_dict(checkpoint_dict['optim_state_dict'])
+        lr_scheduler.load_state_dict(checkpoint_dict['lr_scheduler_state_dict'])
+
+        if self.verbose:
+            print(f'Successfully loaded checkpoint from {chkpnt_path}')
+
+    def train(self, num_epochs, optimizer, train_loader, test_loader, lr_scheduler, chkpnt_dir_path=None,
+              chkpnt_path = None, tb_writer=None, print_val_loss=False, print_f1_every=None):
+
+        if chkpnt_path is not None:
+            # Load model from checkpoint
+            self._load_from_checkpoint(chkpnt_path, optimizer, lr_scheduler)
+
         best_model_wts = copy.deepcopy(self.model.state_dict())
 
+        self.initial_lr = optimizer.lr
+        loss_history = []
+        ap_history = []
         for epoch in range(num_epochs):
             # train for one epoch, printing every 10 iterations
             _, train_loss_iteration = train_one_epoch(self.model, optimizer, train_loader, self.device,
@@ -146,10 +194,12 @@ class MyFasterRCNNModel:
             # evaluate on the test dataset
             coco_eval = evaluate(self.model, test_loader, device=self.device)
             mAP_score = coco_eval.map_score
+            epoch_train_loss = np.mean(train_loss_iteration)  # mean of the loss values during the epoch.
+            loss_history.append(epoch_train_loss)
+            ap_history.append(mAP_score)
 
             if tb_writer is not None or print_val_loss:
                 epoch_val_loss, _ = self._get_val_loss(test_loader)
-                epoch_train_loss = np.mean(train_loss_iteration)  # mean of the loss values during the epoch.
                 if self.verbose:
                     print(f'Epoch #{self.num_epochs_trained} loss(sum of losses): train = {epoch_train_loss}, val = {epoch_val_loss}')
                 # Add results to tensor board
@@ -166,9 +216,11 @@ class MyFasterRCNNModel:
             if mAP_score > self.best_score:
                 # Save best model params
                 if self.verbose:
-                    print(f'current epoch val loss {mAP_score} > best so far {self.best_score} keeping weights')
+                    print(f'current epoch score {mAP_score} > best so far {self.best_score} keeping weights')
                 self.best_score = mAP_score
                 best_model_wts = copy.deepcopy(self.model.state_dict())
+                if chkpnt_dir_path is not None:
+                    self._save_checkpoint(chkpnt_dir_path, optimizer, lr_scheduler, loss_history, ap_history)
 
             self.num_epochs_trained += 1
 
