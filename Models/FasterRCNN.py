@@ -154,8 +154,8 @@ class MyFasterRCNNModel:
         }, chkpnt_dir_path + file_name + '.pt')
         # Save info text file
         with open(chkpnt_dir_path + file_name + '.txt', 'w') as f:
-            f.write(f'Num of epochs trained = {self.num_epochs_trained}')
-            f.write(f'Best mAP score = {ap_history[-1]}')
+            f.write(f'Num of epochs trained = {self.num_epochs_trained}\n')
+            f.write(f'Best mAP score = {ap_history[-1]}\n')
             f.write(f'Initial config : lr = {self.initial_lr}, weight_decay = {optimizer.param_groups[0]["weight_decay"]}, '
                     f'lr_scheduler gamma = {lr_scheduler.gamma} step_size = {lr_scheduler.step_size}')
 
@@ -192,9 +192,12 @@ class MyFasterRCNNModel:
             # update the learning rate
             lr_scheduler.step()
             # evaluate on the test dataset
-            coco_eval = evaluate(self.model, test_loader, device=self.device)
-            mAP_score = coco_eval.map_score
             epoch_train_loss = np.mean(train_loss_iteration)  # mean of the loss values during the epoch.
+            mAP_score = 0
+            if epoch_train_loss < 5451740.5: # just a big number i saw
+                coco_eval = evaluate(self.model, test_loader, device=self.device)
+                mAP_score = coco_eval.map_score
+
             loss_history.append(epoch_train_loss)
             ap_history.append(mAP_score)
 
@@ -208,6 +211,8 @@ class MyFasterRCNNModel:
                         tb_writer.add_scalars('Training convergence/',
                                               {'train_loss': epoch_train_loss,
                                                'val_loss': epoch_val_loss}, self.num_epochs_trained)
+                        tb_writer.add_scalar('0.75% IOU mAP score/test',
+                                             mAP_score, self.num_epochs_trained)
 
             if print_f1_every is not None and self.num_epochs_trained % print_f1_every == 0:
                 val_f1_score = self._get_f1_score(test_loader)
