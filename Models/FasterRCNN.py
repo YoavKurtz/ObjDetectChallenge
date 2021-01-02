@@ -182,7 +182,7 @@ class MyFasterRCNNModel:
 
         best_model_wts = copy.deepcopy(self.model.state_dict())
 
-        self.initial_lr = optimizer.lr
+        self.initial_lr = lr_scheduler.get_last_lr()[0]
         loss_history = []
         ap_history = []
         for epoch in range(num_epochs):
