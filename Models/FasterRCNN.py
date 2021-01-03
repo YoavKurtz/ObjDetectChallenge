@@ -194,7 +194,7 @@ class MyFasterRCNNModel:
             # evaluate on the test dataset
             epoch_train_loss = np.mean(train_loss_iteration)  # mean of the loss values during the epoch.
             mAP_score = 0
-            if epoch_train_loss < 5451740.5: # just a big number i saw
+            if epoch_train_loss < 5:  # just a big number i saw
                 coco_eval = evaluate(self.model, test_loader, device=self.device)
                 mAP_score = coco_eval.map_score
 
