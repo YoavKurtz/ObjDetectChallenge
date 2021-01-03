@@ -24,7 +24,7 @@ class BackBone(Enum):
 
 class MyFasterRCNNModel:
     def __init__(self, num_classes, backbone_type: BackBone, max_num_predictions=100, verbose=False,
-                 score_thresh=0.05, min_size=800, **kwargs):
+                 score_thresh=0.05, min_size=800, only_train_new_layers=False, **kwargs):
         """
 
         :param num_classes: including 'background'
@@ -40,11 +40,12 @@ class MyFasterRCNNModel:
         self.backbone = backbone_type
         self.num_classes = num_classes
         self.num_epochs_trained = 0
-        self.model = self._get_model_instance(score_thresh, max_num_predictions, min_size, **kwargs)
+        self.model = self._get_model_instance(score_thresh, max_num_predictions, min_size,
+                                              only_train_new_layers, **kwargs)
         self.model.to(self.device)
         self.best_score = 0
         self.trainable_backbone_layers = 0
-        for layer in self.model.backbone.body.parameters():
+        for layer in self.model.backbone.parameters():
             if layer.requires_grad:
                 self.trainable_backbone_layers += 1
 
@@ -54,8 +55,10 @@ class MyFasterRCNNModel:
                   f'Backbone = {self.backbone}, max number of predicitons = '
                   f'{max_num_predictions}, trainable_backbone_layers = {self.trainable_backbone_layers}')
 
-    def _get_model_instance(self, score_thresh, max_num_predictions, min_size=800, **kwargs) -> torch.nn.Module:
+    def _get_model_instance(self, score_thresh, max_num_predictions, only_train_new_layers, min_size=800,
+                            **kwargs) -> torch.nn.Module:
         if self.backbone == BackBone.MOBILE_NET_V2:
+            assert 'MobileNet still not ready'
             # based on pytorch tutorial
             # (https://colab.research.google.com/github/pytorch/vision/blob/temp-tutorial/tutorials/torchvision_finetuning_instance_segmentation.ipynb#scrollTo=RoAEkUgn4uEq)
             backbone = torchvision.models.mobilenet_v2(
@@ -83,6 +86,10 @@ class MyFasterRCNNModel:
             in_features = model.roi_heads.box_predictor.cls_score.in_features
             # replace the pre-trained head with a new one
             model.roi_heads.box_predictor = FastRCNNPredictor(in_features, self.num_classes)
+            if only_train_new_layers:
+                # Freeze all layers except for the ones we replaced
+                for name, param in model.named_parameters():
+                    param.requires_grad = 'box_predictor' in name
         else:
             sys.exit('Bad backBone type')
 
